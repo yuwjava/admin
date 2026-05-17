@@ -1,4 +1,4 @@
-import { createI18n } from 'vue-i18n'
+﻿import { createI18n } from 'vue-i18n'
 
 const messages = {
   'zh-CN': {
@@ -1108,6 +1108,7 @@ const messages = {
         interactionModes: {
           qr: '二维码',
           redirect: '跳转',
+          jsapi: 'JSAPI',
           wap: '手机网站',
           page: '电脑网站',
           balance: '余额扣款',
@@ -4442,6 +4443,7 @@ const messages = {
         interactionModes: {
           qr: 'QRCode',
           redirect: '跳轉',
+          jsapi: 'JSAPI',
           wap: '手機網站',
           page: '電腦網站',
           balance: '餘額扣款',
@@ -7776,6 +7778,7 @@ const messages = {
         interactionModes: {
           qr: 'QR',
           redirect: 'Redirect',
+          jsapi: 'JSAPI',
           wap: 'Mobile Web',
           page: 'Desktop Web',
           balance: 'Balance Deduction',

@@ -28,6 +28,7 @@ Build for production:
 
 ```bash
 npm run build
+npm run build:fullstack
 ```
 
 ## Online Documentation

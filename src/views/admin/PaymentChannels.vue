@@ -114,6 +114,7 @@ const interactionModeLabel = (value?: string) => {
   const map: Record<string, string> = {
     qr: t('admin.paymentChannels.interactionModes.qr'),
     redirect: t('admin.paymentChannels.interactionModes.redirect'),
+    jsapi: t('admin.paymentChannels.interactionModes.jsapi'),
     wap: t('admin.paymentChannels.interactionModes.wap'),
     page: t('admin.paymentChannels.interactionModes.page'),
   }

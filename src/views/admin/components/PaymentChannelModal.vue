@@ -280,6 +280,7 @@ const interactionModeOptions = computed(() => {
     return [
       { value: 'qr', label: 'admin.paymentChannels.interactionModes.qr' },
       { value: 'redirect', label: 'admin.paymentChannels.interactionModes.redirect' },
+      { value: 'jsapi', label: 'admin.paymentChannels.interactionModes.jsapi' },
     ]
   }
   return [
