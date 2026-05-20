@@ -1,4 +1,4 @@
-﻿import { createI18n } from 'vue-i18n'
+import { createI18n } from 'vue-i18n'
 
 const messages = {
   'zh-CN': {
@@ -1235,6 +1235,8 @@ const messages = {
           wechatSection: '微信支付官方配置',
           wechatAppId: 'AppID',
           wechatAppIdPlaceholder: '微信支付 AppID',
+          wechatAppSecret: 'AppSecret',
+          wechatAppSecretPlaceholder: '微信支付 AppSecret（网页授权必填）',
           wechatMerchantId: '商户号',
           wechatMerchantIdPlaceholder: '微信支付商户号（mchid）',
           wechatMerchantSerialNo: '商户证书序列号',
@@ -4570,6 +4572,8 @@ const messages = {
           wechatSection: '微信支付官方配置',
           wechatAppId: 'AppID',
           wechatAppIdPlaceholder: '微信支付 AppID',
+          wechatAppSecret: 'AppSecret',
+          wechatAppSecretPlaceholder: '微信支付 AppSecret（網頁授權必填）',
           wechatMerchantId: '商戶號',
           wechatMerchantIdPlaceholder: '微信支付商戶號（mchid）',
           wechatMerchantSerialNo: '商戶證書序列號',
@@ -7905,6 +7909,8 @@ const messages = {
           wechatSection: 'WeChat Pay Official Config',
           wechatAppId: 'AppID',
           wechatAppIdPlaceholder: 'WeChat Pay appid',
+          wechatAppSecret: 'AppSecret',
+          wechatAppSecretPlaceholder: 'WeChat Pay appsecret (Required for OAuth)',
           wechatMerchantId: 'Merchant ID',
           wechatMerchantIdPlaceholder: 'WeChat Pay mchid',
           wechatMerchantSerialNo: 'Merchant Cert Serial No',

@@ -116,6 +116,7 @@ const alipayConfig = reactive({
 
 const wechatConfig = reactive({
   appid: '',
+  app_secret: '',
   mchid: '',
   merchant_serial_no: '',
   merchant_private_key: '',
@@ -353,6 +354,7 @@ const resetAlipayConfig = () => {
 
 const resetWechatConfig = () => {
   wechatConfig.appid = ''
+  wechatConfig.app_secret = ''
   wechatConfig.mchid = ''
   wechatConfig.merchant_serial_no = ''
   wechatConfig.merchant_private_key = ''
@@ -477,6 +479,7 @@ const applyAlipayConfig = (raw: Record<string, unknown>) => {
 
 const applyWechatConfig = (raw: Record<string, unknown>) => {
   wechatConfig.appid = String(raw.appid || '')
+  wechatConfig.app_secret = String(raw.app_secret || '')
   wechatConfig.mchid = String(raw.mchid || '')
   wechatConfig.merchant_serial_no = String(raw.merchant_serial_no || '')
   wechatConfig.merchant_private_key = String(raw.merchant_private_key || '')
@@ -633,6 +636,7 @@ const buildWechatConfig = () => {
     }
   }
   setIfNotEmpty('appid', wechatConfig.appid)
+  setIfNotEmpty('app_secret', wechatConfig.app_secret)
   setIfNotEmpty('mchid', wechatConfig.mchid)
   setIfNotEmpty('merchant_serial_no', wechatConfig.merchant_serial_no)
   setIfNotEmpty('merchant_private_key', wechatConfig.merchant_private_key)
@@ -1255,6 +1259,10 @@ const closeModal = () => {
             <div class="min-w-0">
               <label class="block text-xs font-medium text-muted-foreground mb-1.5">{{ t('admin.paymentChannels.modal.wechatAppId') }}</label>
               <Input v-model="wechatConfig.appid" :placeholder="t('admin.paymentChannels.modal.wechatAppIdPlaceholder')" />
+            </div>
+            <div class="min-w-0">
+              <label class="block text-xs font-medium text-muted-foreground mb-1.5">{{ t('admin.paymentChannels.modal.wechatAppSecret') }}</label>
+              <Input v-model="wechatConfig.app_secret" :placeholder="t('admin.paymentChannels.modal.wechatAppSecretPlaceholder')" />
             </div>
             <div class="min-w-0">
               <label class="block text-xs font-medium text-muted-foreground mb-1.5">{{ t('admin.paymentChannels.modal.wechatMerchantId') }}</label>
