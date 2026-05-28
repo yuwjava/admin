@@ -16,11 +16,14 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import TableSkeleton from '@/components/TableSkeleton.vue'
 import ListPagination from '@/components/ListPagination.vue'
+import { useListRefresh, type ListFetchOptions } from '@/composables/useListRefresh'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatDate } from '@/utils/format'
+import ComplianceGuardWrapper from '@/components/ComplianceGuardWrapper.vue'
 
 const { t } = useI18n()
 const loading = ref(true)
+const { refreshing, refreshList } = useListRefresh()
 const rows = ref<AdminAffiliateCommission[]>([])
 const pagination = ref({
   page: 1,
@@ -28,6 +31,7 @@ const pagination = ref({
   total: 0,
   total_page: 1,
 })
+const adminPath = import.meta.env.VITE_ADMIN_PATH || ''
 
 const filters = reactive({
   keyword: '',
@@ -37,9 +41,11 @@ const filters = reactive({
 })
 
 const normalizeFilterValue = (value: string) => (value === '__all__' ? '' : value)
+const userDetailLink = (userId: number) => `${adminPath}/users/${userId}`
+const resolveAffiliateUserID = (item: AdminAffiliateCommission) => Number(item?.affiliate_profile?.user_id || item?.affiliate_profile?.user?.id || 0)
 
-const fetchRows = async (page = 1) => {
-  loading.value = true
+const fetchRows = async (page = 1, options: ListFetchOptions = {}) => {
+  if (!options.preserveRows) loading.value = true
   try {
     const response = await adminAPI.getAffiliateCommissions({
       page,
@@ -52,19 +58,19 @@ const fetchRows = async (page = 1) => {
     rows.value = response.data.data || []
     pagination.value = response.data.pagination || pagination.value
   } catch {
-    rows.value = []
+    if (!options.preserveRows) rows.value = []
   } finally {
-    loading.value = false
+    if (!options.preserveRows) loading.value = false
   }
 }
 
 const handleSearch = () => {
-  fetchRows(1)
+  fetchRows(1, { preserveRows: true })
 }
 const debouncedSearch = useDebounceFn(handleSearch, 300)
 
 const refreshCurrentPage = () => {
-  fetchRows(pagination.value.page)
+  refreshList(() => fetchRows(pagination.value.page, { preserveRows: true }))
 }
 
 const changePage = (page: number) => {
@@ -102,6 +108,7 @@ onMounted(() => {
 </script>
 
 <template>
+  <ComplianceGuardWrapper>
   <div class="space-y-6">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <h1 class="text-2xl font-semibold">{{ t('admin.affiliatesCommissions.title') }}</h1>
@@ -133,7 +140,7 @@ onMounted(() => {
           </Select>
         </div>
         <div class="flex-1"></div>
-        <Button size="sm" variant="outline" @click="refreshCurrentPage">{{ t('admin.common.refresh') }}</Button>
+        <Button size="sm" variant="outline" :disabled="refreshing" @click="refreshCurrentPage">{{ t('admin.common.refresh') }}</Button>
       </div>
     </div>
 
@@ -171,7 +178,19 @@ onMounted(() => {
                 <span class="break-words">{{ item?.affiliate_profile?.user?.display_name || '-' }}</span>
               </div>
               <div v-if="item?.affiliate_profile?.user?.email" class="mt-0.5 break-all">{{ item.affiliate_profile.user.email }}</div>
-              <div class="mt-0.5 break-all font-mono">#{{ item?.affiliate_profile?.id || '-' }} / {{ item?.affiliate_profile?.code || '-' }}</div>
+              <div class="mt-0.5 break-all">
+                <a
+                  v-if="resolveAffiliateUserID(item) > 0"
+                  :href="userDetailLink(resolveAffiliateUserID(item))"
+                  target="_blank"
+                  rel="noopener"
+                  class="font-mono text-primary underline-offset-4 hover:underline"
+                >
+                  #{{ resolveAffiliateUserID(item) }}
+                </a>
+                <span v-else class="font-mono text-foreground">-</span>
+                <span class="ml-1 font-mono text-muted-foreground">/ {{ item?.affiliate_profile?.code || '-' }}</span>
+              </div>
             </TableCell>
             <TableCell class="min-w-[160px] px-6 py-4 font-mono text-xs text-foreground break-all">
               {{ item?.order?.order_no || '-' }}
@@ -202,4 +221,5 @@ onMounted(() => {
       />
     </div>
   </div>
+  </ComplianceGuardWrapper>
 </template>

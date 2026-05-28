@@ -12,10 +12,12 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import TableSkeleton from '@/components/TableSkeleton.vue'
 import ListPagination from '@/components/ListPagination.vue'
+import { useListRefresh, type ListFetchOptions } from '@/composables/useListRefresh'
 import { formatDate, getLocalizedText, toRFC3339 } from '@/utils/format'
 import { formatSkuDisplayLabel } from '@/utils/sku'
 
 const loading = ref(true)
+const { refreshing, refreshList } = useListRefresh()
 const refunds = ref<AdminOrderRefund[]>([])
 const pagination = ref({
   page: 1,
@@ -47,6 +49,7 @@ const orderLink = (orderId?: number) => {
   if (!orderId) return ''
   return `${adminPath}/orders?order_id=${orderId}`
 }
+const userDetailLink = (userId: number) => `${adminPath}/users/${userId}`
 
 const refundTypeLabel = (item: AdminOrderRefund | null) => {
   if (!item) return '-'
@@ -56,8 +59,8 @@ const refundTypeLabel = (item: AdminOrderRefund | null) => {
   return code || '-'
 }
 
-const fetchRefunds = async (page = 1) => {
-  loading.value = true
+const fetchRefunds = async (page = 1, options: ListFetchOptions = {}) => {
+  if (!options.preserveRows) loading.value = true
   try {
     const response = await adminAPI.getOrderRefunds({
       page,
@@ -73,10 +76,12 @@ const fetchRefunds = async (page = 1) => {
     refunds.value = response.data.data || []
     pagination.value = response.data.pagination || pagination.value
   } catch {
-    refunds.value = []
-    pagination.value = { page: 1, page_size: pagination.value.page_size, total: 0, total_page: 0 }
+    if (!options.preserveRows) {
+      refunds.value = []
+      pagination.value = { page: 1, page_size: pagination.value.page_size, total: 0, total_page: 0 }
+    }
   } finally {
-    loading.value = false
+    if (!options.preserveRows) loading.value = false
   }
 }
 
@@ -86,7 +91,7 @@ const handleSearch = () => {
 const debouncedSearch = useDebounceFn(handleSearch, 300)
 
 const refresh = () => {
-  fetchRefunds(pagination.value.page)
+  refreshList(() => fetchRefunds(pagination.value.page, { preserveRows: true }))
 }
 
 const changePage = (page: number) => {
@@ -194,7 +199,7 @@ watch(
           />
         </div>
         <div class="hidden flex-1 sm:block"></div>
-        <Button size="sm" class="w-full sm:w-auto" @click="refresh">{{ t('admin.common.refresh') }}</Button>
+        <Button size="sm" class="w-full sm:w-auto" :disabled="refreshing" @click="refresh">{{ t('admin.common.refresh') }}</Button>
       </div>
     </div>
 
@@ -248,7 +253,16 @@ watch(
               <div v-else-if="item.user_id">
                 <div class="break-words text-foreground">{{ item.user_display_name || '-' }}</div>
                 <div class="break-all">{{ item.user_email || '-' }}</div>
-                <div class="mt-0.5 text-primary">#{{ item.user_id }}</div>
+                <div class="mt-0.5">
+                  <a
+                    :href="userDetailLink(item.user_id)"
+                    target="_blank"
+                    rel="noopener"
+                    class="text-primary underline-offset-4 hover:underline"
+                  >
+                    #{{ item.user_id }}
+                  </a>
+                </div>
               </div>
               <div v-else>-</div>
             </TableCell>

@@ -12,6 +12,7 @@ import { toggleArrayMember } from '@/lib/utils'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import TableSkeleton from '@/components/TableSkeleton.vue'
 import ListPagination from '@/components/ListPagination.vue'
+import { useListRefresh, type ListFetchOptions } from '@/composables/useListRefresh'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatDate } from '@/utils/format'
 import { confirmAction } from '@/utils/confirm'
@@ -19,6 +20,7 @@ import { notifyError, notifySuccess } from '@/utils/notify'
 
 const { t } = useI18n()
 const loading = ref(true)
+const { refreshing, refreshList } = useListRefresh()
 const operatingProfileID = ref<number | null>(null)
 const rows = ref<any[]>([])
 const selectedIds = ref<number[]>([])
@@ -36,6 +38,8 @@ const filters = reactive({
 })
 
 const normalizeFilterValue = (value: string) => (value === '__all__' ? '' : value)
+const adminPath = import.meta.env.VITE_ADMIN_PATH || ''
+const userDetailLink = (userId: number) => `${adminPath}/users/${userId}`
 
 const parseNumber = (value: unknown, fallback = 0) => {
   const parsed = Number(value)
@@ -59,8 +63,8 @@ const conversionRateText = (stats: Record<string, unknown> | undefined) => {
   return `${value.toFixed(2)}%`
 }
 
-const fetchRows = async (page = 1) => {
-  loading.value = true
+const fetchRows = async (page = 1, options: ListFetchOptions = {}) => {
+  if (!options.preserveRows) loading.value = true
   try {
     const response = await adminAPI.getAffiliateUsers({
       page,
@@ -78,20 +82,24 @@ const fetchRows = async (page = 1) => {
     selectedIds.value = selectedIds.value.filter((id) => currentIDs.has(id))
     pagination.value = response.data.pagination || pagination.value
   } catch {
-    rows.value = []
-    selectedIds.value = []
+    if (!options.preserveRows) {
+      rows.value = []
+      selectedIds.value = []
+    }
   } finally {
-    loading.value = false
+    if (!options.preserveRows) loading.value = false
   }
 }
 
 const handleSearch = () => {
-  fetchRows(1)
+  fetchRows(1, { preserveRows: true })
 }
 const debouncedSearch = useDebounceFn(handleSearch, 300)
 
+const reloadCurrentPage = () => fetchRows(pagination.value.page, { preserveRows: true })
+
 const refreshCurrentPage = () => {
-  fetchRows(pagination.value.page)
+  refreshList(reloadCurrentPage)
 }
 
 const changePage = (page: number) => {
@@ -120,6 +128,7 @@ const statusClass = (status?: string) => {
 }
 
 const resolveProfileID = (row: Record<string, unknown>) => Number((row?.profile as Record<string, unknown>)?.id || row?.id || 0)
+const resolveUserID = (row: Record<string, unknown>) => Number((row?.profile as Record<string, unknown>)?.user_id || row?.user_id || 0)
 const resolveProfileStatus = (row: Record<string, unknown>) => String((row?.profile as Record<string, unknown>)?.status || row?.status || '').trim()
 const canToggleStatus = (row: Record<string, unknown>) => resolveProfileID(row) > 0
 const allSelected = computed(() => {
@@ -166,7 +175,7 @@ const toggleProfileStatus = async (row: Record<string, unknown>) => {
         ? t('admin.affiliatesUsers.actions.disableSuccess')
         : t('admin.affiliatesUsers.actions.enableSuccess'),
     )
-    await refreshCurrentPage()
+    await reloadCurrentPage()
   } catch (err: any) {
     notifyError(
       err?.message
@@ -198,7 +207,7 @@ const batchUpdateStatus = async (status: string) => {
         : t('admin.affiliatesUsers.batch.disableSuccess', { count: selectedIds.value.length }),
     )
     selectedIds.value = []
-    await refreshCurrentPage()
+    await reloadCurrentPage()
   } catch (err: any) {
     notifyError(
       err?.message
@@ -259,7 +268,7 @@ onMounted(() => {
             {{ t('admin.affiliatesUsers.batch.disable') }}
           </Button>
         </template>
-        <Button size="sm" variant="outline" @click="refreshCurrentPage">{{ t('admin.common.refresh') }}</Button>
+        <Button size="sm" variant="outline" :disabled="refreshing" @click="refreshCurrentPage">{{ t('admin.common.refresh') }}</Button>
       </div>
     </div>
 
@@ -305,7 +314,18 @@ onMounted(() => {
               <IdCell :value="item?.profile?.id || item?.id" />
             </TableCell>
             <TableCell class="min-w-[160px] px-6 py-4 text-xs text-muted-foreground">
-              <div class="text-foreground">#{{ item?.profile?.user_id || item?.user_id || '-' }}</div>
+              <div>
+                <a
+                  v-if="resolveUserID(item) > 0"
+                  :href="userDetailLink(resolveUserID(item))"
+                  target="_blank"
+                  rel="noopener"
+                  class="font-mono text-primary underline-offset-4 hover:underline"
+                >
+                  #{{ resolveUserID(item) }}
+                </a>
+                <span v-else class="text-foreground">-</span>
+              </div>
               <div v-if="item?.profile?.user?.display_name" class="mt-0.5 break-words text-foreground">{{ item.profile.user.display_name }}</div>
               <div v-if="item?.profile?.user?.email" class="mt-0.5 break-all">{{ item.profile.user.email }}</div>
             </TableCell>

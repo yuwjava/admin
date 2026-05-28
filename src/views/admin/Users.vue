@@ -16,12 +16,14 @@ import { Dialog, DialogHeader, DialogScrollContent, DialogTitle } from '@/compon
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import TableSkeleton from '@/components/TableSkeleton.vue'
 import ListPagination from '@/components/ListPagination.vue'
+import { useListRefresh, type ListFetchOptions } from '@/composables/useListRefresh'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { confirmAction } from '@/utils/confirm'
 import { useFormValidation, rules } from '@/composables/useFormValidation'
 
 const { t } = useI18n()
 const loading = ref(true)
+const { refreshing, refreshList } = useListRefresh()
 const users = ref<AdminUser[]>([])
 const selectedIds = ref<number[]>([])
 const adminPath = import.meta.env.VITE_ADMIN_PATH || ''
@@ -32,6 +34,7 @@ const pagination = ref({
   total_page: 1,
 })
 const filters = reactive({
+  userId: '',
   keyword: '',
   status: '__all__',
   createdFrom: '',
@@ -51,6 +54,7 @@ const form = reactive({
   nickname: '',
   password: '',
   locale: 'zh-CN',
+  email_verified: 'unverified',
   status: 'active',
   admin_note: '',
 })
@@ -60,12 +64,13 @@ const { errors: formErrors, validate, clearErrors } = useFormValidation({
   nickname: [rules.required('This field is required')],
 })
 
-const fetchUsers = async (page = 1) => {
-  loading.value = true
+const fetchUsers = async (page = 1, options: ListFetchOptions = {}) => {
+  if (!options.preserveRows) loading.value = true
   try {
     const response = await adminAPI.getUsers({
       page,
       page_size: pagination.value.page_size,
+      user_id: filters.userId || undefined,
       keyword: filters.keyword || undefined,
       status: normalizeFilterValue(filters.status) || undefined,
       created_from: toRFC3339(filters.createdFrom),
@@ -77,9 +82,9 @@ const fetchUsers = async (page = 1) => {
     pagination.value = response.data.pagination || pagination.value
     selectedIds.value = []
   } catch {
-    users.value = []
+    if (!options.preserveRows) users.value = []
   } finally {
-    loading.value = false
+    if (!options.preserveRows) loading.value = false
   }
 }
 
@@ -123,10 +128,11 @@ const handleSearch = () => {
 const debouncedSearch = useDebounceFn(handleSearch, 300)
 
 const refresh = () => {
-  fetchUsers(pagination.value.page)
+  refreshList(() => fetchUsers(pagination.value.page, { preserveRows: true }))
 }
 
 const resetFilters = () => {
+  filters.userId = ''
   filters.keyword = ''
   filters.status = '__all__'
   filters.createdFrom = ''
@@ -189,6 +195,7 @@ const openEditModal = (user: AdminUser) => {
   form.nickname = user.display_name || ''
   form.password = ''
   form.locale = user.locale || 'zh-CN'
+  form.email_verified = user.email_verified_at ? 'verified' : 'unverified'
   form.status = user.status || 'active'
   form.admin_note = (user.admin_note as string) || ''
   error.value = ''
@@ -213,6 +220,7 @@ const handleSubmit = async () => {
       nickname: form.nickname,
       password: form.password || undefined,
       locale: form.locale,
+      email_verified: form.email_verified === 'verified',
       status: form.status,
       admin_note: form.admin_note,
     })
@@ -253,6 +261,9 @@ onMounted(() => {
 
     <div class="rounded-xl border border-border bg-card p-4 shadow-sm">
       <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div class="w-full md:w-32">
+          <Input v-model="filters.userId" :placeholder="t('admin.users.filterUserId')" @update:modelValue="debouncedSearch" />
+        </div>
         <div class="w-full md:w-64">
           <Input v-model="filters.keyword" :placeholder="t('admin.users.filterKeyword')" @update:modelValue="debouncedSearch" />
         </div>
@@ -307,7 +318,7 @@ onMounted(() => {
         <div class="hidden flex-1 sm:block"></div>
         <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <Button size="sm" variant="outline" class="w-full sm:w-auto" @click="resetFilters">{{ t('admin.common.reset') }}</Button>
-          <Button size="sm" class="w-full sm:w-auto" @click="refresh">{{ t('admin.common.refresh') }}</Button>
+          <Button size="sm" class="w-full sm:w-auto" :disabled="refreshing" @click="refresh">{{ t('admin.common.refresh') }}</Button>
         </div>
       </div>
     </div>
@@ -439,6 +450,18 @@ onMounted(() => {
                   <SelectItem value="zh-CN">{{ t('admin.common.lang.zhCN') }}</SelectItem>
                   <SelectItem value="zh-TW">{{ t('admin.common.lang.zhTW') }}</SelectItem>
                   <SelectItem value="en-US">{{ t('admin.common.lang.enUS') }}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-muted-foreground mb-1.5">{{ t('admin.users.form.emailVerifiedStatus') }}</label>
+              <Select v-model="form.email_verified">
+                <SelectTrigger class="h-9 w-full">
+                  <SelectValue :placeholder="t('admin.users.emailVerification.verified')" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="verified">{{ t('admin.users.emailVerification.verified') }}</SelectItem>
+                  <SelectItem value="unverified">{{ t('admin.users.emailVerification.unverified') }}</SelectItem>
                 </SelectContent>
               </Select>
             </div>

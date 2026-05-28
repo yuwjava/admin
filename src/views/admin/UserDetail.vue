@@ -3,8 +3,9 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { adminAPI, type AdminWalletAccount, type AdminWalletTransaction } from '@/api/admin'
-import type { AdminUser, AdminOrder, AdminPayment, AdminMemberLevel } from '@/api/types'
+import type { AdminUser, AdminOrder, AdminPayment, AdminMemberLevel, AdminUserOAuthIdentity } from '@/api/types'
 import IdCell from '@/components/IdCell.vue'
+import { BadgeCheck, Copy, BadgeAlert } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
@@ -12,6 +13,8 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import ListPagination from '@/components/ListPagination.vue'
 import type { AcceptableValue } from 'reka-ui'
+import { copyText } from '@/utils/clipboard'
+import { confirmAction } from '@/utils/confirm'
 import {
   orderStatusClass as orderStatusClassMap,
   orderStatusLabel as orderStatusLabelMap,
@@ -224,6 +227,15 @@ const changeOrdersPageSize = (size: number) => {
   fetchOrders(1)
 }
 
+const handleCopyOrderNo = async (orderNo?: string) => {
+  if (!orderNo) return
+  try { await copyText(orderNo) } catch {}
+}
+
+const handleCopyRechargeNo = async (rechargeNo: string) => {
+  try { await copyText(rechargeNo) } catch {}
+}
+
 const changePaymentsPage = (page: number) => {
   if (page < 1 || page > paymentsPagination.value.total_page) return
   fetchPayments(page)
@@ -273,6 +285,7 @@ const changeTab = (tab: 'orders' | 'payments' | 'coupons' | 'wallet') => {
 }
 
 const orderLink = (orderId: number) => `${adminPath}/orders?order_id=${orderId}`
+const paymentDetailLink = (paymentId: number) => `${adminPath}/payments?payment_id=${paymentId}`
 const orderListLink = computed(() => `${adminPath}/orders?user_id=${userId.value}`)
 const paymentListLink = computed(() => `${adminPath}/payments?user_id=${userId.value}`)
 
@@ -282,6 +295,10 @@ const orderStatusClass = (status?: string) => orderStatusClassMap(status)
 const orderStatusLabel = (status?: string) => orderStatusLabelMap(t, status)
 const paymentStatusClass = (status?: string) => paymentStatusClassMap(status)
 const paymentStatusLabel = (status?: string) => paymentStatusLabelMap(t, status)
+const emailVerified = computed(() => Boolean(user.value?.email_verified_at))
+const emailVerificationClass = computed(() => emailVerified.value ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700')
+const emailVerificationIcon = computed(() => emailVerified.value ? BadgeCheck : BadgeAlert)
+const emailVerificationLabel = computed(() => emailVerified.value ? t('admin.userDetail.emailVerification.verified') : t('admin.userDetail.emailVerification.unverified'))
 
 const walletDirectionClass = (direction?: string) => {
   if (direction === 'in') return 'theme-badge-success'
@@ -367,6 +384,9 @@ const oauthIdentities = computed(() => {
   const list = user.value?.oauth_identities
   return Array.isArray(list) ? list : []
 })
+const oauthUnbindingId = ref<number | null>(null)
+const oauthError = ref('')
+const oauthSuccess = ref('')
 
 const twofaEnabled = computed(() => Boolean(user.value?.totp_enabled_at))
 const twofaEnabledAt = computed(() => (user.value?.totp_enabled_at as string | undefined) || '')
@@ -398,6 +418,33 @@ const formatProviderLabel = (provider?: string) => {
   const normalized = provider.trim().toLowerCase()
   if (normalized === 'telegram') return 'Telegram'
   return normalized
+}
+
+const isTelegramIdentity = (identity: AdminUserOAuthIdentity) => {
+  return identity.provider?.trim().toLowerCase() === 'telegram'
+}
+
+const handleUnbindTelegram = async (identity: AdminUserOAuthIdentity) => {
+  if (!Number.isFinite(userId.value) || userId.value <= 0 || !isTelegramIdentity(identity)) return
+  const account = identity.username ? `@${identity.username}` : identity.provider_user_id || 'Telegram'
+  const confirmed = await confirmAction({
+    description: t('admin.userDetail.oauth.confirmUnbindTelegram', { account }),
+    confirmText: t('admin.userDetail.oauth.unbindTelegram'),
+    variant: 'destructive',
+  })
+  if (!confirmed) return
+  oauthError.value = ''
+  oauthSuccess.value = ''
+  oauthUnbindingId.value = identity.id
+  try {
+    await adminAPI.unbindUserTelegram(userId.value)
+    await fetchUser()
+    oauthSuccess.value = t('admin.userDetail.oauth.unbindSuccess')
+  } catch (err: any) {
+    oauthError.value = err?.message || t('admin.userDetail.oauth.unbindFailed')
+  } finally {
+    oauthUnbindingId.value = null
+  }
 }
 
 onMounted(() => {
@@ -457,7 +504,13 @@ watch(
       <Card class="rounded-lg border-border bg-background shadow-none">
         <CardContent class="p-3">
           <div class="text-xs text-muted-foreground">{{ t('admin.userDetail.fields.email') }}</div>
-          <div class="text-sm text-foreground break-all">{{ user?.email || '-' }}</div>
+          <div class="flex flex-wrap items-center gap-2 text-sm text-foreground">
+            <span class="break-all">{{ user?.email || '-' }}</span>
+            <span class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs" :class="emailVerificationClass">
+              <component :is="emailVerificationIcon" class="h-3.5 w-3.5" />
+              {{ emailVerificationLabel }}
+            </span>
+          </div>
         </CardContent>
       </Card>
       <Card class="rounded-lg border-border bg-background shadow-none">
@@ -569,6 +622,8 @@ watch(
           <div class="text-xs text-muted-foreground">{{ t('admin.userDetail.oauth.title') }}</div>
           <div class="text-sm text-muted-foreground">{{ t('admin.userDetail.oauth.subtitle') }}</div>
         </div>
+        <div v-if="oauthError" class="text-xs text-destructive">{{ oauthError }}</div>
+        <div v-if="oauthSuccess" class="text-xs text-emerald-600">{{ oauthSuccess }}</div>
         <div v-if="oauthIdentities.length === 0" class="text-sm text-muted-foreground">
           {{ t('admin.userDetail.oauth.empty') }}
         </div>
@@ -578,19 +633,31 @@ watch(
             :key="identity.id"
             class="rounded-lg border border-border bg-card px-4 py-3"
           >
-            <div class="flex items-center gap-3">
-              <img
-                v-if="identity.avatar_url"
-                :src="identity.avatar_url"
-                :alt="identity.username || identity.provider_user_id"
-                class="h-10 w-10 rounded-full border border-border object-cover"
-              />
-              <div class="min-w-0">
-                <div class="text-sm font-medium text-foreground">{{ formatProviderLabel(identity.provider) }}</div>
-                <div class="truncate text-xs text-muted-foreground">
-                  {{ identity.username ? `@${identity.username}` : identity.provider_user_id }}
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex min-w-0 items-center gap-3">
+                <img
+                  v-if="identity.avatar_url"
+                  :src="identity.avatar_url"
+                  :alt="identity.username || identity.provider_user_id"
+                  class="h-10 w-10 rounded-full border border-border object-cover"
+                />
+                <div class="min-w-0">
+                  <div class="text-sm font-medium text-foreground">{{ formatProviderLabel(identity.provider) }}</div>
+                  <div class="truncate text-xs text-muted-foreground">
+                    {{ identity.username ? `@${identity.username}` : identity.provider_user_id }}
+                  </div>
                 </div>
               </div>
+              <Button
+                v-if="isTelegramIdentity(identity)"
+                size="sm"
+                variant="destructive"
+                class="shrink-0 cursor-pointer"
+                :disabled="oauthUnbindingId === identity.id"
+                @click="handleUnbindTelegram(identity)"
+              >
+                {{ oauthUnbindingId === identity.id ? t('admin.userDetail.oauth.unbindingTelegram') : t('admin.userDetail.oauth.unbindTelegram') }}
+              </Button>
             </div>
             <div class="mt-3 space-y-1 text-xs text-muted-foreground">
               <div>{{ t('admin.userDetail.oauth.providerUserId') }}: <span class="font-mono text-foreground">{{ identity.provider_user_id || '-' }}</span></div>
@@ -636,7 +703,24 @@ watch(
             <TableCell class="px-6 py-4">
               <IdCell :value="order.id" />
             </TableCell>
-            <TableCell class="min-w-[220px] px-6 py-4 text-foreground font-mono break-all">{{ order.order_no }}</TableCell>
+            <TableCell class="min-w-[220px] px-6 py-4 text-foreground font-mono">
+              <div class="flex items-center gap-1.5">
+                <router-link
+                  :to="orderLink(order.id)"
+                  class="break-all text-primary underline-offset-4 hover:underline"
+                >
+                  {{ order.order_no }}
+                </router-link>
+                <button
+                  type="button"
+                  class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:border-border"
+                  :title="t('admin.common.copy')"
+                  @click="handleCopyOrderNo(order.order_no)"
+                >
+                  <Copy class="h-3 w-3" />
+                </button>
+              </div>
+            </TableCell>
             <TableCell class="px-6 py-4 text-xs">
               <span class="inline-flex rounded-full border px-2.5 py-1 text-xs" :class="orderStatusClass(order.status)">
                 {{ orderStatusLabel(order.status) }}
@@ -684,11 +768,35 @@ watch(
               <router-link
                 v-if="payment.order_id"
                 :to="orderLink(payment.order_id)"
-                class="text-primary underline-offset-4 hover:underline"
+                class="break-all text-primary underline-offset-4 hover:underline"
               >
-                #{{ payment.order_id }}
+                {{ payment.order_no }}
               </router-link>
-              <span v-else-if="payment.recharge_no" class="break-all">{{ payment.recharge_no }}</span>
+              <button
+                v-if="payment.order_id"
+                type="button"
+                class="ml-1.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:border-border"
+                :title="t('admin.common.copy')"
+                @click="handleCopyOrderNo(payment.order_no)"
+              >
+                <Copy class="h-3 w-3" />
+              </button>
+              <div v-else-if="payment.recharge_no" class="flex items-center gap-1.5">
+                <router-link
+                  :to="paymentDetailLink(payment.id)"
+                  class="break-all text-primary underline-offset-4 hover:underline"
+                >
+                  {{ payment.recharge_no }}
+                </router-link>
+                <button
+                  type="button"
+                  class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:border-border"
+                  :title="t('admin.common.copy')"
+                  @click="handleCopyRechargeNo(payment.recharge_no)"
+                >
+                  <Copy class="h-3 w-3" />
+                </button>
+              </div>
               <span v-else>-</span>
               <div v-if="payment.recharge_no" class="mt-1 text-xs text-muted-foreground">
                 {{ t('admin.payments.rechargeStatus') }}:
