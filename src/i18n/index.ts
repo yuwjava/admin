@@ -2603,6 +2603,9 @@ const messages = {
           telegramPlaceholder: 'https://t.me/...',
           whatsapp: 'WhatsApp 链接',
           whatsappPlaceholder: 'https://wa.me/...',
+          wechatQrcode: '公众号二维码',
+          wechatQrcodeSelect: '选择二维码',
+          wechatQrcodeTip: '用于前台页脚“联系我们”区域展示，不配置则不显示',
         },
         footerLinks: {
           title: '页脚自定义链接',
@@ -6035,6 +6038,9 @@ const messages = {
           telegramPlaceholder: 'https://t.me/...',
           whatsapp: 'WhatsApp 連結',
           whatsappPlaceholder: 'https://wa.me/...',
+          wechatQrcode: '公眾號 QR Code',
+          wechatQrcodeSelect: '選擇 QR Code',
+          wechatQrcodeTip: '用於前台頁尾「聯絡我們」區域展示，不配置則不顯示',
         },
         footerLinks: {
           title: '頁尾自訂連結',
@@ -9467,6 +9473,9 @@ const messages = {
           telegramPlaceholder: 'https://t.me/...',
           whatsapp: 'WhatsApp',
           whatsappPlaceholder: 'https://wa.me/...',
+          wechatQrcode: 'Official account QR code',
+          wechatQrcodeSelect: 'Select QR code',
+          wechatQrcodeTip: 'Shown in the frontend footer Contact area. Leave empty to hide it.',
         },
         footerLinks: {
           title: 'Custom Footer Links',

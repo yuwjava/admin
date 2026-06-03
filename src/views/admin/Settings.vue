@@ -31,6 +31,7 @@ const navigationTabRef = ref<InstanceType<typeof SettingsNavigationTab>>()
 const homeAnnouncementTabRef = ref<InstanceType<typeof SettingsHomeAnnouncementTab>>()
 const upstreamSyncTabRef = ref<InstanceType<typeof SettingsUpstreamSyncTab>>()
 const siteIconPickerRef = ref<InstanceType<typeof MediaPicker> | null>(null)
+const wechatQrcodePickerRef = ref<InstanceType<typeof MediaPicker> | null>(null)
 const supportedLanguages = ['zh-CN', 'zh-TW', 'en-US'] as const
 type SupportedLanguage = (typeof supportedLanguages)[number]
 type SiteScriptPosition = 'head' | 'body_end'
@@ -184,6 +185,7 @@ const form = reactive({
   contact: {
     telegram: '',
     whatsapp: '',
+    wechat_qrcode: '',
   },
   seo: {
     title: createLocalizedField(),
@@ -580,6 +582,14 @@ const clearSiteIcon = () => {
   form.brand.site_icon = ''
 }
 
+const openWechatQrcodePicker = () => {
+  wechatQrcodePickerRef.value?.openPicker()
+}
+
+const clearWechatQrcode = () => {
+  form.contact.wechat_qrcode = ''
+}
+
 const saveOrderSettings = async () => {
   const normalizedMaxRefundDays = clampNumber(form.order_max_refund_days, 0, 3650, 30)
   const normalizedPaymentExpireMinutes = clampNumber(orderPaymentExpireMinutes.value, 1, 10080, 15)
@@ -917,6 +927,28 @@ onMounted(() => {
           <div class="space-y-2">
             <label class="text-xs font-medium text-muted-foreground">{{ t('admin.settings.contact.whatsapp') }}</label>
             <Input v-model="form.contact.whatsapp" :placeholder="t('admin.settings.contact.whatsappPlaceholder')" />
+          </div>
+          <div class="space-y-2 md:col-span-2">
+            <label class="text-xs font-medium text-muted-foreground">{{ t('admin.settings.contact.wechatQrcode') }}</label>
+            <div class="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/20 transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                :title="t('admin.settings.contact.wechatQrcodeTip')"
+                @click="openWechatQrcodePicker"
+              >
+                <img v-if="form.contact.wechat_qrcode" :src="getImageUrl(form.contact.wechat_qrcode)" class="h-full w-full object-contain" alt="" />
+                <span v-else class="text-[10px] font-semibold text-muted-foreground">QR</span>
+              </button>
+              <Button type="button" variant="outline" size="sm" @click="openWechatQrcodePicker">
+                {{ t('admin.settings.contact.wechatQrcodeSelect') }}
+              </Button>
+              <Button v-if="form.contact.wechat_qrcode" type="button" variant="ghost" size="sm" @click="clearWechatQrcode">
+                {{ t('admin.common.delete') }}
+              </Button>
+            </div>
+            <p class="text-xs text-muted-foreground">{{ t('admin.settings.contact.wechatQrcodeTip') }}</p>
+            <MediaPicker ref="wechatQrcodePickerRef" v-model="form.contact.wechat_qrcode" scene="common" dialog-only />
           </div>
         </div>
       </div>
