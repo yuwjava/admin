@@ -31,6 +31,7 @@ export interface AdminProductSKU {
   product_id: number
   sku_code: string
   spec_values: Record<string, string>
+  image_url?: string
   price_amount: number
   cost_price_amount: number
   manual_stock_total: number

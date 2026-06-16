@@ -92,6 +92,7 @@ type SKUFormItem = {
   id: number
   sku_code: string
   spec_values: Record<string, string>
+  image_url: string
   price_amount: number
   cost_price_amount: number
   manual_stock_total: number
@@ -131,6 +132,7 @@ const createSKUFormItem = (raw?: Partial<AdminProductSKU>): SKUFormItem => ({
       return result
     }, {}),
   },
+  image_url: String(raw?.image_url || '').trim(),
   price_amount: Number(raw?.price_amount || 0),
   cost_price_amount: Number(raw?.cost_price_amount || 0),
   manual_stock_total: toSafeStockTotal(raw?.manual_stock_total),
@@ -452,6 +454,7 @@ const normalizeSKUsForSubmit = () => {
       id: item.id > 0 ? item.id : undefined,
       sku_code: skuCode,
       spec_values: specValues,
+      image_url: String(item.image_url || '').trim(),
       price_amount: priceAmount,
       cost_price_amount: Number(item.cost_price_amount) || 0,
       manual_stock_total: manualStockTotal,
@@ -951,9 +954,17 @@ watch(
                   <label class="block text-xs font-medium text-muted-foreground mb-1.5">{{ t('admin.products.form.skuCode') }}</label>
                   <Input v-model="sku.sku_code" :placeholder="t('admin.products.form.skuCodePlaceholder')" :disabled="editingIsMapped" />
                 </div>
-                <div :class="form.fulfillment_type === 'manual' ? 'md:col-span-1' : 'md:col-span-2'">
-                  <label class="block text-xs font-medium text-muted-foreground mb-1.5">{{ t('admin.products.form.skuSpec', { lang: getCurrentLangName() }) }}</label>
-                  <Input v-model="sku.spec_values[currentLang]" :placeholder="t('admin.products.form.skuSpecPlaceholder')" :disabled="editingIsMapped" />
+                <div :class="form.fulfillment_type === 'manual' ? 'md:col-span-2' : 'md:col-span-3'">
+                  <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
+                    <div class="shrink-0">
+                      <div class="mb-1.5 h-4"></div>
+                      <MediaPicker v-model="sku.image_url" :multiple="false" scene="product" compact />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <label class="block text-xs font-medium text-muted-foreground mb-1.5">{{ t('admin.products.form.skuSpec', { lang: getCurrentLangName() }) }}</label>
+                      <Input v-model="sku.spec_values[currentLang]" :placeholder="t('admin.products.form.skuSpecPlaceholder')" :disabled="editingIsMapped" />
+                    </div>
+                  </div>
                 </div>
                 <div class="md:col-span-1">
                   <label class="block text-xs font-medium text-muted-foreground mb-1.5">{{ t('admin.products.form.skuPrice') }}</label>
