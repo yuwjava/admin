@@ -45,11 +45,20 @@ export interface AdminProductSKU {
   updated_at: string
 }
 
+/** 商品 SEO 元数据：title/keywords/description 为多语言文本，noindex 为“不让搜索引擎收录”开关 */
+export interface ProductSeoMeta {
+  title?: LocalizedText
+  keywords?: LocalizedText
+  description?: LocalizedText
+  noindex?: boolean
+  [key: string]: LocalizedText | boolean | undefined
+}
+
 export interface AdminProduct {
   id: number
   category_id: number
   slug: string
-  seo_meta: Record<string, LocalizedText>
+  seo_meta: ProductSeoMeta
   title: LocalizedText
   description: LocalizedText
   content: LocalizedText

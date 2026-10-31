@@ -2,7 +2,14 @@
 import { computed, ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
-import type { AdminProduct, AdminCategory, AdminProductSKU, AdminPaymentChannel, LocalizedText } from '@/api/types'
+import type { AdminProduct, AdminCategory, AdminProductSKU, AdminPaymentChannel, LocalizedText, ProductSeoMeta } from '@/api/types'
+
+type ProductSeoMetaForm = {
+  title: LocalizedText
+  keywords: LocalizedText
+  description: LocalizedText
+  noindex: boolean
+}
 import MediaPicker from '@/components/admin/MediaPicker.vue'
 import RichEditor from '@/components/RichEditor.vue'
 // image utils removed - MediaPicker handles image display
@@ -144,7 +151,12 @@ const form = reactive({
   id: 0,
   title: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' } as LocalizedText,
   slug: '',
-  seo_meta: { keywords: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' }, description: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' } } as { keywords: LocalizedText; description: LocalizedText; [key: string]: LocalizedText },
+  seo_meta: {
+    title: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' },
+    keywords: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' },
+    description: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' },
+    noindex: false,
+  } as ProductSeoMetaForm,
   description: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' } as LocalizedText,
   content: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' } as LocalizedText,
   instructions: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' } as LocalizedText,
@@ -204,21 +216,25 @@ const getCurrentLangName = () => {
 
 const emptyI18nString = () => ({ 'zh-CN': '', 'zh-TW': '', 'en-US': '' })
 
-const normalizeSeoMeta = (raw: Record<string, LocalizedText> | null | undefined) => {
-  if (!raw) return { keywords: emptyI18nString(), description: emptyI18nString() }
-  const normalize = (val: string | LocalizedText | null | undefined) => {
+const normalizeSeoMeta = (raw: ProductSeoMeta | null | undefined): ProductSeoMetaForm => {
+  if (!raw) return { title: emptyI18nString(), keywords: emptyI18nString(), description: emptyI18nString(), noindex: false }
+  const normalize = (val: unknown): LocalizedText => {
     if (!val) return emptyI18nString()
     if (typeof val === 'string') {
       return { 'zh-CN': val, 'zh-TW': '', 'en-US': '' }
     }
     if (typeof val === 'object') {
-      return { 'zh-CN': val['zh-CN'] || '', 'zh-TW': val['zh-TW'] || '', 'en-US': val['en-US'] || '' }
+      const text = val as LocalizedText
+      return { 'zh-CN': text['zh-CN'] || '', 'zh-TW': text['zh-TW'] || '', 'en-US': text['en-US'] || '' }
     }
     return emptyI18nString()
   }
+  // title 与 noindex 必须一并保留，否则后台每保存一次就会把它们清掉
   return {
+    title: normalize(raw.title),
     keywords: normalize(raw.keywords),
     description: normalize(raw.description),
+    noindex: raw.noindex === true,
   }
 }
 
@@ -479,7 +495,7 @@ const resetForm = () => {
     id: 0,
     title: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' },
     slug: '',
-    seo_meta: { keywords: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' }, description: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' } },
+    seo_meta: { title: emptyI18nString(), keywords: emptyI18nString(), description: emptyI18nString(), noindex: false },
     description: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' },
     content: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' },
     instructions: { 'zh-CN': '', 'zh-TW': '', 'en-US': '' },
@@ -733,6 +749,12 @@ watch(
             <label class="block text-xs font-medium text-muted-foreground mb-1.5">{{ t('admin.products.form.slug') }}</label>
             <Input v-model="form.slug" required :placeholder="t('admin.products.form.slugPlaceholder')" />
             <p class="mt-1 text-xs text-muted-foreground">{{ t('admin.products.form.slugTip') }}</p>
+          </div>
+
+          <div class="col-span-1 md:col-span-2">
+            <label class="block text-xs font-medium text-muted-foreground mb-1.5">{{ t('admin.products.form.seoMetaTitle', { lang: getCurrentLangName() }) }}</label>
+            <Input v-model="form.seo_meta.title[currentLang]" :placeholder="t('admin.products.form.seoMetaTitlePlaceholder')" />
+            <p class="mt-1 text-xs text-muted-foreground">{{ t('admin.products.form.seoMetaTitleTip') }}</p>
           </div>
 
           <div class="col-span-1">
@@ -1094,6 +1116,10 @@ watch(
             <div class="inline-flex items-center gap-2">
               <Switch id="is_active" v-model="form.is_active" />
               <Label for="is_active" class="text-sm text-muted-foreground select-none">{{ t('admin.products.form.activeNow') }}</Label>
+            </div>
+            <div class="inline-flex items-center gap-2">
+              <Switch id="seo_noindex" v-model="form.seo_meta.noindex" />
+              <Label for="seo_noindex" class="text-sm text-muted-foreground select-none">{{ t('admin.products.form.seoNoindex') }}</Label>
             </div>
           </div>
         </div>
